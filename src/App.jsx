@@ -1,54 +1,80 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Login from "./Login.jsx";
+import { getCurrentAdmin } from "./api.js";
 import "./App.css";
 
+const SESSION_KEY = "pathpoint-admin";
+
+// Saved as { token, admin: { id, username } }. Older demo sessions have no token.
+const loadSession = () => {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(SESSION_KEY));
+    return saved?.token ? saved : null;
+  } catch {
+    return null;
+  }
+};
+
 function App() {
+  // ================= AUTH =================
+  const [session, setSession] = useState(loadSession);
+  const admin = session?.admin;
+
   const [activePage, setActivePage] = useState("Dashboard");
 
   // ================= USERS =================
   const [users, setUsers] = useState([
     {
+      id: 1,
       name: "John Doe",
       email: "john@example.com",
       role: "Job Seeker",
       status: "Active",
     },
     {
+      id: 2,
       name: "Maria Santos",
       email: "maria@example.com",
       role: "Job Seeker",
       status: "Active",
     },
     {
+      id: 3,
       name: "Pedro Cruz",
       email: "pedro@example.com",
       role: "Job Seeker",
       status: "Active",
     },
     {
+      id: 4,
       name: "Ana Reyes",
       email: "ana@example.com",
       role: "Job Seeker",
       status: "Inactive",
     },
     {
+      id: 5,
       name: "Mark Dela Cruz",
       email: "mark@example.com",
       role: "Job Seeker",
       status: "Active",
     },
     {
+      id: 6,
       name: "Sofia Garcia",
       email: "sofia@example.com",
       role: "Job Seeker",
       status: "Active",
     },
     {
+      id: 7,
       name: "James Santos",
       email: "james@example.com",
       role: "Job Seeker",
       status: "Active",
     },
     {
+      id: 8,
       name: "Angela Lopez",
       email: "angela@example.com",
       role: "Job Seeker",
@@ -57,13 +83,13 @@ function App() {
   ]);
 
   // ================= DELETE USER =================
-  const handleDeleteUser = (index) => {
+  const handleDeleteUser = (id) => {
     const confirmDelete = window.confirm(
       "Are you sure you want to delete this user?"
     );
 
     if (confirmDelete) {
-      setUsers(users.filter((_, i) => i !== index));
+      setUsers((prev) => prev.filter((user) => user.id !== id));
     }
   };
 
@@ -77,6 +103,40 @@ function App() {
     { name: "Users", icon: "👥" },
   ];
 
+  const clearSession = () => {
+    sessionStorage.removeItem(SESSION_KEY);
+    setSession(null);
+  };
+
+  // Re-check a saved token with the server; drop it if it expired or was revoked.
+  const token = session?.token;
+  useEffect(() => {
+    if (!token) return;
+
+    getCurrentAdmin(token).catch((err) => {
+      if (err.status === 401) {
+        sessionStorage.removeItem(SESSION_KEY);
+        setSession(null);
+      }
+    });
+  }, [token]);
+
+  const handleLogin = (newSession) => {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(newSession));
+    setSession(newSession);
+    setActivePage("Dashboard");
+  };
+
+  const handleLogout = () => {
+    if (window.confirm("Are you sure you want to log out?")) {
+      clearSession();
+    }
+  };
+
+  if (!admin) {
+    return <Login onLogin={handleLogin} />;
+  }
+
   return (
     <div className="app">
 
@@ -84,9 +144,9 @@ function App() {
       <aside className="sidebar">
 
         <div className="logo">
+          <img src="/logo.jpg" alt="PathPoint Logo" />
           <h2>PathPoint</h2>
           <p>Admin Panel</p>
-          <image src="/logo.jpg" alt="PathPoint Logo" />
         </div>
 
         <nav>
@@ -103,6 +163,14 @@ function App() {
             </button>
           ))}
         </nav>
+
+        <div className="sidebar-footer">
+          <p className="admin-username">{admin.username}</p>
+          <button className="logout-button" onClick={handleLogout}>
+            <span>🚪</span>
+            Logout
+          </button>
+        </div>
 
       </aside>
 
@@ -130,6 +198,10 @@ function App() {
   </div>
 </button>
 
+          <button className="header-logout" onClick={handleLogout}>
+            Logout
+          </button>
+
         </header>
 
 
@@ -143,7 +215,7 @@ function App() {
                   <p>Total Applications</p>
                   <h2>0</h2>
                 </div>
-                <span>📋</span>
+                <span className="stat-icon">📋</span>
               </div>
 
               <div className="stat-card">
@@ -151,7 +223,7 @@ function App() {
                   <p>Interviews</p>
                   <h2>0</h2>
                 </div>
-                <span>📅</span>
+                <span className="stat-icon">📅</span>
               </div>
 
               <div className="stat-card">
@@ -159,7 +231,7 @@ function App() {
                   <p>Pending</p>
                   <h2>0</h2>
                 </div>
-                <span>⏳</span>
+                <span className="stat-icon">⏳</span>
               </div>
 
               <div className="stat-card">
@@ -167,7 +239,7 @@ function App() {
                   <p>Hired</p>
                   <h2>0</h2>
                 </div>
-                <span>✓</span>
+                <span className="stat-icon">✓</span>
               </div>
 
             </section>
@@ -489,9 +561,9 @@ function App() {
 
                 <tbody>
 
-                  {users.map((user, index) => (
+                  {users.map((user) => (
 
-                    <tr key={index}>
+                    <tr key={user.id}>
 
                       <td>{user.name}</td>
 
@@ -516,7 +588,7 @@ function App() {
                       <td>
                         <button
                           className="delete-button"
-                          onClick={() => handleDeleteUser(index)}
+                          onClick={() => handleDeleteUser(user.id)}
                         >
                           Delete
                         </button>
